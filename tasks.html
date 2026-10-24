@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Мой To-Do List</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            color: #333;
+            max-width: 600px;
+            margin: 40px auto;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+            color: #1a73e8;
+        }
+        .container {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        input[type="text"] {
+            flex: 1;
+            min-width: 150px;
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            font-size: 16px;
+            outline: none;
+        }
+        input[type="text"]:focus {
+            border-color: #1a73e8;
+        }
+        button {
+            padding: 12px 20px;
+            background-color: #1a73e8;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background-color: #1557b0;
+        }
+        ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        li {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+            transition: background 0.2s;
+        }
+        li:hover {
+            background-color: #f9f9f9;
+        }
+        li:last-child {
+            border-bottom: none;
+        }
+        .task-content {
+            flex: 1;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+        }
+        .task-title {
+            font-size: 18px;
+            font-weight: 500;
+        }
+        .task-desc {
+            font-size: 14px;
+            color: #666;
+            margin-top: 4px;
+        }
+        .done .task-title {
+            text-decoration: line-through;
+            color: #888;
+        }
+        .done .task-desc {
+            color: #aaa;
+        }
+        .delete-btn {
+            background-color: #dc3545;
+            padding: 8px 12px;
+            font-size: 14px;
+            margin-left: 15px;
+        }
+        .delete-btn:hover {
+            background-color: #c82333;
+        }
+        .empty-msg {
+            text-align: center;
+            color: #888;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>📝 Мой To-Do List</h1>
+
+    <div class="container">
+        <!-- Форма добавления -->
+        <div class="input-group">
+            <input type="text" id="title" placeholder="Что нужно сделать?" required>
+            <input type="text" id="description" placeholder="Описание (необязательно)">
+            <button onclick="addTask()">Добавить</button>
+        </div>
+
+        <!-- Список задач -->
+        <ul id="taskList">
+            <!-- Сюда будут загружаться задачи -->
+        </ul>
+        <div id="emptyMsg" class="empty-msg" style="display: none;">У вас пока нет задач. Добавьте первую!</div>
+    </div>
+
+    <script>
+        const API_URL = "http://127.0.0.1:8000";
+
+        // 1. Загрузка задач при открытии страницы
+        async function loadTasks() {
+            try {
+                const response = await fetch(`${API_URL}/tasks`);
+                const tasks = await response.json();
+                renderTasks(tasks);
+            } catch (error) {
+                console.error("Ошибка при загрузке:", error);
+                alert("Не удалось загрузить задачи. Проверьте, запущен ли сервер.");
+            }
+        }
+
+        // 2. Отрисовка задач на странице
+        function renderTasks(tasks) {
+            const list = document.getElementById("taskList");
+            const emptyMsg = document.getElementById("emptyMsg");
+            list.innerHTML = ""; // Очищаем список
+
+            if (tasks.length === 0) {
+                emptyMsg.style.display = "block";
+                return;
+            } else {
+                emptyMsg.style.display = "none";
+            }
+
+            tasks.forEach(task => {
+                const li = document.createElement("li");
+                if (task.is_done) li.classList.add("done");
+
+                li.innerHTML = `
+                    <div class="task-content" onclick="toggleTask(${task.id}, ${task.is_done})">
+                        <span class="task-title">${task.title}</span>
+                        <span class="task-desc">${task.description || 'Без описания'}</span>
+                    </div>
+                    <button class="delete-btn" onclick="deleteTask(${task.id})">Удалить</button>
+                `;
+                list.appendChild(li);
+            });
+        }
+
+        // 3. Добавление новой задачи
+        async function addTask() {
+            const titleInput = document.getElementById("title");
+            const descInput = document.getElementById("description");
+            
+            const title = titleInput.value.trim();
+            const description = descInput.value.trim();
+
+            if (!title) {
+                alert("Введите название задачи!");
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/tasks`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ title, description })
+                });
+
+                if (response.ok) {
+                    titleInput.value = ""; // Очищаем поля
+                    descInput.value = "";
+                    loadTasks(); // Обновляем список
+                } else {
+                    alert("Ошибка при добавлении");
+                }
+            } catch (error) {
+                console.error("Ошибка:", error);
+            }
+        }
+
+        // 4. Изменение статуса (PATCH)
+        async function toggleTask(id, currentStatus) {
+            try {
+                const response = await fetch(`${API_URL}/tasks/${id}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ is_done: !currentStatus }) // Инвертируем статус
+                });
+
+                if (response.ok) {
+                    loadTasks(); // Перезагружаем список, чтобы увидеть изменения
+                }
+            } catch (error) {
+                console.error("Ошибка:", error);
+            }
+        }
+
+        // 5. Удаление задачи (DELETE)
+        async function deleteTask(id) {
+            if (!confirm("Вы уверены, что хотите удалить задачу?")) return;
+
+            try {
+                const response = await fetch(`${API_URL}/tasks/${id}`, {
+                    method: "DELETE"
+                });
+
+                if (response.ok) {
+                    loadTasks(); // Перезагружаем список
+                }
+            } catch (error) {
+                console.error("Ошибка:", error);
+            }
+        }
+
+        // Запускаем загрузку при старте
+        loadTasks();
+    </script>
+</body>
+</html>
